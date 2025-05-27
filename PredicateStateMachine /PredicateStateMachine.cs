@@ -2,17 +2,16 @@
 
 using System;
 
-public class SimpleStateMachine<TEvent, TData>
+public class PredicateStateMachine<TEvent> where TEvent : IEvent
 {
-    private IStateNode<TEvent, TData> _current;
-    private IStateNode<TEvent, TData> _root;
-
-
-    public void Configure(IStateMachineConfig<TEvent, TData> config)
+    private IStateNode<TEvent> _current;
+    private IStateNode<TEvent> _root;
+    
+    public void Configure(IStateMachineConfig<TEvent> config)
     {
         _root = config.GetRoot();
     }
-
+    
     public void HandleEvent(TEvent e)
     {
         if (_current == null)
@@ -24,8 +23,13 @@ public class SimpleStateMachine<TEvent, TData>
     {
         if (_root == null)
             throw new Exception("Configuration error");
-
         _current = _root;
-        _current.Start(null);
+        _current.Start();
+    }
+
+    //hide this
+    internal void Transition(IStateNode<TEvent> next)
+    {
+        _current = next;
     }
 }

@@ -1,6 +1,6 @@
 namespace PredicateStateMachine;
 
-public interface IStateMachineConfig<TEvent, TData>
+public interface IStateMachineConfig<TEvent> where TEvent : IEvent
 {
-    IStateNode<TEvent, TData> GetRoot();
+    IStateNode<TEvent> GetRoot();
 }

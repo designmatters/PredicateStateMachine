@@ -3,100 +3,107 @@ using Timer = System.Timers.Timer;
 
 namespace PredicateStateMachine;
 
-public abstract class StateNode<TEvent, TData> : IStateNode<TEvent, TData>
+public abstract class StateNode<TEvent> : IStateNode<TEvent> where TEvent : IEvent
 {
-    private readonly Dictionary<ITransition<TEvent, TData>, IStateNode<TEvent, TData>> _transitions = new();
-
-    private readonly Timer _timeoutTimer = new();
-
-    private SimpleStateMachine<TEvent, TData> SimpleStateMachine { get; set; } //name
-
-    protected StateNode(SimpleStateMachine<TEvent, TData> stateMachine)
-    {
-        SimpleStateMachine = stateMachine;
-
-        _timeoutTimer.Elapsed  += TimeoutTimerElapsed;
-    }
-
-    void TimeoutTimerElapsed(object sender, ElapsedEventArgs e)
-    {
-        _timeoutTimer.Stop();
-        SimpleStateMachine.HandleEvent(TimeoutEvent);
-    }
-
+    private readonly Dictionary<ITransition<TEvent>, IStateNode<TEvent>> _transitions = new();
+    private readonly Timer _timeoutTimer;
+    private readonly object _lock = new();
 
     public string Name { get; set; }
+    public StateTimeoutConfiguration<TEvent>? TimeoutConfiguration { get; private set; }
+    public PredicateStateMachine<TEvent> Owner { get; }
 
-    public IEnumerable<IStateNode<TEvent, TData>> NextNodes
+    protected StateNode(PredicateStateMachine<TEvent> stateMachine, string name)
     {
-        get { return _transitions.Select(t => t.Value); }
-        set { throw new NotImplementedException(); } //to check
+        Owner = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+
+        _timeoutTimer = new Timer { AutoReset = false };
+        _timeoutTimer.Elapsed += TimeoutTimerElapsed;
     }
-
-    public TData Data { get; set; }
-    public int TimeoutMs { get; set; }
-
-
-    public void AddPath(ITransition<TEvent, TData> transition, IStateNode<TEvent, TData> nextState)
+    
+    public void AddPath(ITransition<TEvent> transition, IStateNode<TEvent> nextState)
     {
-        _transitions.Add(transition, nextState);
-    }
+        if (transition == null || nextState == null)
+            throw new ArgumentNullException();
 
-    public IStateNode<TEvent, TData> HandleEvent(TEvent e)
-    {
-        var transition = _transitions.Where(t => t.Key.CanTransition(e, Data))
-            .OrderByDescending(t => t.Key.Priority).FirstOrDefault();
-
-        if (transition.Key != null)
+        lock (_lock)
         {
-            IStateNode<TEvent, TData> next = transition.Value;
+            _transitions[transition] = nextState;
+        }
+    }
+
+    public void AddTimeout(StateTimeoutConfiguration<TEvent> timeoutConfiguration)
+    {
+        TimeoutConfiguration = timeoutConfiguration ?? throw new ArgumentNullException(nameof(timeoutConfiguration));
+    }
+
+    public IStateNode<TEvent> HandleEvent(TEvent e)
+    {
+        KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>? selected;
+
+        lock (_lock)
+        {
+            selected = _transitions
+                .Where(t => t.Key.CanTransition(e))
+                .OrderByDescending(t => t.Key.Priority)
+                .Cast<KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>?>()
+                .FirstOrDefault();
+        }
+
+        if (selected.HasValue)
+        {
+            var next = selected.Value.Value;
+
             OnBeforeStop();
-            _StopTimer();
-            DoStop();
-            next.Start(transition.Key);
+            StopTimer();
+            OnStop();
             OnAfterStop();
+
+            next.Start();
             return next;
         }
 
         return this;
     }
 
-    public void Start(ITransition<TEvent, TData> trigger)
+    public void Start()
     {
         OnBeforeStart();
-
-        _StartTimerIfNeeded();
-        DoStart(trigger);
-
+        Owner.Transition(this);
+        StartTimerIfNeeded();
+        OnStart();
         OnAfterStart();
     }
 
-
-    public void _StopTimer()
+    private void StopTimer()
     {
         _timeoutTimer.Stop();
     }
 
-
-    private void _StartTimerIfNeeded()
+    private void StartTimerIfNeeded()
     {
-        if (TimeoutMs != 0)
+        if (TimeoutConfiguration != null && TimeoutConfiguration.TimeoutMs > 0.0)
         {
-            _timeoutTimer.Interval = TimeoutMs;
+            _timeoutTimer.Interval = TimeoutConfiguration.TimeoutMs;
             _timeoutTimer.Start();
         }
     }
 
+    private void TimeoutTimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        _timeoutTimer.Stop();
 
-    protected abstract void DoStart(ITransition<TEvent, TData> trigger);
+        if (TimeoutConfiguration != null && TimeoutConfiguration.TimeoutEvent != null)
+        {
+            Owner.HandleEvent(TimeoutConfiguration.TimeoutEvent);
+        }
+    }
 
-    protected abstract void DoStop();
+    protected abstract void OnStart();
+    protected abstract void OnStop();
     protected abstract void OnAfterStart();
     protected abstract void OnAfterStop();
     protected abstract void OnBeforeStart();
-
     protected abstract void OnBeforeStop();
-
-
-    public abstract TEvent TimeoutEvent { get; }
 }

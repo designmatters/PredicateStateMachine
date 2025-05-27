@@ -1,15 +1,15 @@
 namespace PredicateStateMachine;
 
 //Drop this if no complex behaviour is needed
-public class StateMachineConfig<TEvent, TData> : IStateMachineConfig<TEvent, TData>
+public class StateMachineConfig<TEvent> : IStateMachineConfig<TEvent> where TEvent : IEvent
 {
-    private readonly IStateNode<TEvent, TData> _startStateNode;
+    private readonly IStateNode<TEvent> _startStateNode;
 
-    public StateMachineConfig(IStateNode<TEvent, TData> startStateNode)
+    public StateMachineConfig(IStateNode<TEvent> startStateNode)
     {
         _startStateNode = startStateNode;
     }
-    public IStateNode<TEvent, TData> GetRoot()
+    public IStateNode<TEvent> GetRoot()
     {
         return _startStateNode;
     }

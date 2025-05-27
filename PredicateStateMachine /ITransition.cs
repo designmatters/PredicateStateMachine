@@ -1,11 +1,9 @@
 namespace PredicateStateMachine;
 
-public interface ITransition<TEvent, in TData>
+public interface ITransition<TEvent> where TEvent : IEvent
 {
-    TEvent Event { get; }
-    Func<TData, bool> Predicate { get; }
-
+    public Func<TEvent, bool> Selector { get; set; }
+    Func<TEvent, bool> Predicate { get; }
     int Priority { get; }
-
-    bool CanTransition(TEvent e, TData payload);
+    bool CanTransition(TEvent e);
 }
