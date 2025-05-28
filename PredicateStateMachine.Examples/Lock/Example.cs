@@ -17,21 +17,14 @@ public static class Example
         int failedAttempts = 0;
 
         idle.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Code Entered"), checking);
-
         checking.AddPath(new Trigger<AccessEvent>(
             e => e.Identifier == "Granted"), granted);
-        
         checking.AddPath(new Trigger<AccessEvent>(
             e => e.Identifier == "Denied"), denied);
-
         denied.AddPath(new Trigger<AccessEvent>(e => true), idle);
         denied.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Lockout", priority: 1), lockedOut);
-
         granted.AddTimeout(new StateTimeoutConfiguration<AccessEvent>(3000, new AccessEvent("Timeout")));
         granted.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Timeout"), idle);
-
-        lockedOut.AddTimeout(new StateTimeoutConfiguration<AccessEvent>(10000, new AccessEvent("Unlock")));
-        lockedOut.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Unlock"), idle);
 
         denied.OnAfterStartAction = () =>
         {

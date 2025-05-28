@@ -32,4 +32,9 @@ public class PredicateStateMachine<TEvent> where TEvent : IEvent
     {
         _current = next;
     }
+
+    public IStateNode<TEvent> GetCurrentState()
+    {
+        return _current;
+    }
 }
