@@ -2,34 +2,24 @@ using PredicateStateMachine;
 
 namespace Sensor;
 
-public class SensorState : StateNode<SensorEvent>
+public class SensorState : IStateNode<SensorEvent>
 {
-    public SensorState(PredicateStateMachine<SensorEvent> machine, string name)
-        : base(machine, name)
+    public string Name { get; set; }
+    public Action? OnStartAction { get; set; }
+
+    public SensorState(string name)
     {
         Name = name;
     }
 
-    protected override void OnStart() =>
+    public void OnBeforeStart() { }
+    public void OnStart()
+    {
         Console.WriteLine($"→ {Name}");
-
-    protected override void OnStop()
-    {
+        OnStartAction?.Invoke();
     }
-
-    protected override void OnBeforeStart() // prev state
-    {
-    }
-
-    protected override void OnAfterStart()
-    {
-    }
-
-    protected override void OnBeforeStop()
-    {
-    }
-
-    protected override void OnAfterStop()
-    {
-    }
+    public void OnAfterStart() { }
+    public void OnBeforeStop() { }
+    public void OnStop() { }
+    public void OnAfterStop() { }
 }

@@ -1,3 +1,4 @@
+using System.ComponentModel.Design.Serialization;
 using PredicateStateMachine;
 
 namespace Sensor;
@@ -8,27 +9,27 @@ public static class Example
     {
         var machine = new PredicateStateMachine<SensorEvent>();
 
-        var idle = new SensorState(machine, "Idle");
-        var detected = new SensorState(machine, "Detected");
-        var alarm = new SensorState(machine, "Alarm");
+        var idle = new SensorState("Idle");
+        var detected = new SensorState("Detected");
+        var alarm = new SensorState("Alarm")
+        {
+            OnStartAction = () => Console.WriteLine("Alaaaarm!")
+        };
 
-        idle.AddPath(new Trigger<SensorEvent>(e => e.Identifier == "MovementDetected"), detected);
-        detected.AddPath(new Trigger<SensorEvent>(e => e.Identifier == "MovementCleared"), idle);
-        detected.AddTimeout(new StateTimeoutConfiguration<SensorEvent>(
-            timeoutMs: 5000,
-            new SensorEvent("Timeout")));
-        detected.AddPath(new Trigger<SensorEvent>(e => e.Identifier == "Timeout"), alarm);
+        // If the sensor stays in movementDetected for at least 5s go to alarm. 
+        machine.AddPath(idle, new Transition<SensorEvent>(e => e.Identifier == "MovementDetected"), detected);
+        machine.AddPath(detected, new Transition<SensorEvent>(e => e.Identifier == "MovementCleared"), idle);
+        machine.AddTimeout(detected, new StateTimeoutConfiguration<SensorEvent>(5000, new SensorEvent("Timeout")));
+        machine.AddPath(detected, new Transition<SensorEvent>(e => e.Identifier == "Timeout"), alarm);
 
+        machine.AddStates([idle, detected, alarm]);
         machine.Configure(new StateMachineConfig<SensorEvent>(idle));
         machine.Start();
-
-        var movementDetected = new SensorEvent("MovementDetected");
-        var movementCleared = new SensorEvent("MovementCleared");
-
-        machine.HandleEvent(movementDetected);
+        
+        machine.HandleEvent(new SensorEvent("MovementDetected"));
         Thread.Sleep(3000);
-        machine.HandleEvent(movementCleared);
-        machine.HandleEvent(movementDetected);
+        machine.HandleEvent(new SensorEvent("MovementCleared"));
+        machine.HandleEvent(new SensorEvent("MovementDetected"));
         Thread.Sleep(6000);
     }
 }

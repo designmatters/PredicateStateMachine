@@ -2,35 +2,20 @@ using PredicateStateMachine;
 
 namespace EmergencyTrafficLight;
 
-public class TrafficState : StateNode<TrafficEvent>
+public class TrafficState : IStateNode<TrafficEvent>
 {
-    public TrafficState(PredicateStateMachine<TrafficEvent> stateMachine, string name) : base(stateMachine, name)
+    public string Name { get; set; }
+    public Action? OnAfterStartAction { get; set; }
+
+    public TrafficState(string name)
     {
         Name = name;
     }
 
-    protected override void OnStart()
-    {
-        Console.WriteLine($"→ {Name}");
-    }
-
-    protected override void OnStop()
-    {
-    }
-
-    protected override void OnAfterStart()
-    {
-    }
-
-    protected override void OnAfterStop()
-    {
-    }
-
-    protected override void OnBeforeStart()
-    {
-    }
-
-    protected override void OnBeforeStop()
-    {
-    }
+    public void OnBeforeStart() { }
+    public void OnStart() { Console.WriteLine($"→ {Name}"); }
+    public void OnAfterStart() => OnAfterStartAction?.Invoke();
+    public void OnBeforeStop() { }
+    public void OnStop() { }
+    public void OnAfterStop() { }
 }

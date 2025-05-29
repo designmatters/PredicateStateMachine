@@ -6,38 +6,36 @@ public static class Example
 {
     public static void Run()
     {
-        var machine = new PredicateStateMachine<AccessEvent>();
-
-        var idle = new AccessState(machine, "Idle");
-        var checking = new AccessState(machine, "Checking");
-        var granted = new AccessState(machine, "Granted");
-        var denied = new AccessState(machine, "Denied");
-        var lockedOut = new AccessState(machine, "LockedOut");
-
         int failedAttempts = 0;
 
-        idle.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Code Entered"), checking);
-        checking.AddPath(new Trigger<AccessEvent>(
-            e => e.Identifier == "Granted"), granted);
-        checking.AddPath(new Trigger<AccessEvent>(
-            e => e.Identifier == "Denied"), denied);
-        denied.AddPath(new Trigger<AccessEvent>(e => true), idle);
-        denied.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Lockout", priority: 1), lockedOut);
-        granted.AddTimeout(new StateTimeoutConfiguration<AccessEvent>(3000, new AccessEvent("Timeout")));
-        granted.AddPath(new Trigger<AccessEvent>(e => e.Identifier == "Timeout"), idle);
-
-        denied.OnAfterStartAction = () =>
+        var machine = new PredicateStateMachine<AccessEvent>();
+        var idle = new AccessState("Idle");
+        var checking = new AccessState("Checking");
+        var granted = new AccessState("Granted");
+        var denied = new AccessState("Denied")
         {
-            failedAttempts++;
-            if (failedAttempts >= 2)
+            OnAfterStartAction = () =>
             {
-                machine.HandleEvent(new AccessEvent("Lockout"));
-                failedAttempts = 0;
+                failedAttempts++;
+                if (failedAttempts >= 2)
+                {
+                    machine.HandleEvent(new AccessEvent("Lockout"));
+                    failedAttempts = 0;
+                }
             }
         };
+        var lockedOut = new AccessState("LockedOut");
 
+        machine.AddPath(idle, new Transition<AccessEvent>(e => e.Identifier == "Code Entered"), checking);
+        machine.AddPath(checking, new Transition<AccessEvent>(e => e.Identifier == "Granted"), granted);
+        machine.AddPath(checking, new Transition<AccessEvent>(e => e.Identifier == "Denied"), denied);
+        machine.AddPath(denied, new Transition<AccessEvent>(e => true), idle);
+        machine.AddPath(denied, new Transition<AccessEvent>(e => e.Identifier == "Lockout", priority: 1), lockedOut);
+        machine.AddPath(granted, new Transition<AccessEvent>(e => e.Identifier == "Timeout"), idle);
+        machine.AddTimeout(granted, new StateTimeoutConfiguration<AccessEvent>(3000, new AccessEvent("Timeout")));
 
-        machine.Configure(new StateMachineConfig<AccessEvent>(idle));
+        machine.AddStates([idle, checking, granted, denied, lockedOut]);
+        machine.Configure(new StateMachineConfig<AccessEvent>(idle)); //merge this into prev
         machine.Start();
 
         machine.HandleEvent(new AccessEvent("Code Entered"));

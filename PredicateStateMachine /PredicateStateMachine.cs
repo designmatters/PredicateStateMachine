@@ -1,40 +1,144 @@
-﻿namespace PredicateStateMachine;
+using Timer = System.Timers.Timer;
 
-using System;
+namespace PredicateStateMachine;
 
-public class PredicateStateMachine<TEvent> where TEvent : IEvent
+public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
+    where TEvent : IEvent
 {
-    private IStateNode<TEvent> _current;
-    private IStateNode<TEvent> _root;
-    
+    private IStateNode<TEvent>? _current;
+    private IStateNode<TEvent>? _root;
+    private List<IStateNode<TEvent>>? _states;
+
+    private readonly Dictionary<IStateNode<TEvent>, Dictionary<ITransition<TEvent>, IStateNode<TEvent>>> _paths = new();
+    private readonly Dictionary<IStateNode<TEvent>, StateTimeoutConfiguration<TEvent>> _timeouts = new();
+    private readonly Dictionary<IStateNode<TEvent>, Timer> _timers = new();
+
+    private readonly object _lock = new();
+    private bool _started;
+    // private bool _stopped;
+
+    public void AddStates(List<IStateNode<TEvent>> newStates)
+    {
+        _states ??= [];
+
+        var duplicates = _states.Concat(newStates)
+            .GroupBy(s => s.Name)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicates.Count > 0)
+            throw new ApplicationException($"Every state must have a unique name. Duplicates found: {string.Join(", ", duplicates)}");
+
+        _states.AddRange(newStates);
+    }
+
+    public void AddPath(IStateNode<TEvent> sourceState, ITransition<TEvent> transition, IStateNode<TEvent> targetState)
+    {
+        if (!_paths.TryGetValue(sourceState, out var transitions))
+            _paths[sourceState] = transitions = new();
+
+        transitions[transition] = targetState;
+    }
+
+    public void AddTimeout(IStateNode<TEvent> sourceState, StateTimeoutConfiguration<TEvent> timeoutConfiguration)
+    {
+        _timeouts[sourceState] = timeoutConfiguration;
+    }
+
     public void Configure(IStateMachineConfig<TEvent> config)
     {
         _root = config.GetRoot();
     }
-    
-    public void HandleEvent(TEvent e)
+
+    public IStateNode<TEvent> HandleEvent(TEvent e)
     {
-        if (_current == null)
-            return;
-        _current = _current.HandleEvent(e);
+        if (!_started)
+            throw new ApplicationException("State machine has not been started.");
+        // if (_stopped)
+        //     throw new ApplicationException("State machine has been stopped.");
+
+        KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>? selected = null;
+
+        lock (_lock)
+        {
+            if (_current == null || !_paths.TryGetValue(_current, out var transitions))
+                return _current!;
+
+            selected = transitions
+                .Where(t => t.Key.CanTransition(e))
+                .OrderByDescending(t => t.Key.Priority)
+                .Cast<KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>?>()
+                .FirstOrDefault();
+        }
+
+        if (selected.HasValue)
+        {
+            var nextState = selected.Value.Value;
+            _current?.OnBeforeStop();
+            StopTimer(_current);
+            _current?.OnStop();
+            _current?.OnAfterStop();
+
+            nextState.OnBeforeStart();
+            _current = nextState;
+            _current.OnStart();
+            StartTimer(_current);
+            _current.OnAfterStart();
+
+            return _current;
+        }
+
+        return _current!;
+    }
+
+    public IStateNode<TEvent> GetCurrentState()
+    {
+        return _current!;
     }
 
     public void Start()
     {
         if (_root == null)
-            throw new Exception("Configuration error");
+            throw new InvalidOperationException("Root state is not set.");
+
         _current = _root;
-        _current.Start();
+        _started = true;
+        _current.OnStart();
+        StartTimer(_current);
     }
 
-    //hide this
-    internal void Transition(IStateNode<TEvent> next)
+    private void StartTimer(IStateNode<TEvent> state)
     {
-        _current = next;
+        if (_timeouts.TryGetValue(state, out var config))
+        {
+            var timer = new Timer(config.TimeoutMs);
+            timer.Elapsed += (_, _) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                _timers.Remove(state);
+                lock (_lock)
+                {
+                    if (_current == state)
+                    {
+                        HandleEvent(config.TimeoutEvent);
+                    }
+                }
+            };
+            timer.AutoReset = false;
+            _timers[state] = timer;
+            timer.Start();
+        }
     }
 
-    public IStateNode<TEvent> GetCurrentState()
+    private void StopTimer(IStateNode<TEvent> state)
     {
-        return _current;
+        if (_timers.TryGetValue(state, out var timer))
+        {
+            timer.Stop();
+            timer.Dispose();
+            _timers.Remove(state);
+        }
     }
 }

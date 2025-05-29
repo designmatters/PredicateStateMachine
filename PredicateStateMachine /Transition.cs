@@ -1,8 +1,8 @@
 namespace PredicateStateMachine;
 
-public class Trigger<TEvent> : ITransition<TEvent> where TEvent : IEvent
+public class Transition<TEvent> : ITransition<TEvent> where TEvent : IEvent
 {
-    public Trigger(Func<TEvent, bool> selector, Func<TEvent, bool>? predicate = null, int priority = 0)
+    public Transition(Func<TEvent, bool> selector, Func<TEvent, bool>? predicate = null, int priority = 0)
     {
         Selector = selector;
         Predicate = predicate;

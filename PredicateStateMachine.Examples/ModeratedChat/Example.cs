@@ -8,25 +8,27 @@ public static class Example
     {
         var machine = new PredicateStateMachine<ModerationEvent>();
 
-        var normal = new ModerationState(machine, "Normal");
-        var warned = new ModerationState(machine, "Warned");
-        var muted = new ModerationState(machine, "Muted");
-        var banned = new ModerationState(machine, "Banned");
-        var underReview = new ModerationState(machine, "UnderReview");
-        var approved = new ModerationState(machine, "Approved");
-        var rejected = new ModerationState(machine, "Rejected");
+        var normal = new ModerationState("Normal");
+        var warned = new ModerationState("Warned");
+        var muted = new ModerationState("Muted");
+        var banned = new ModerationState("Banned");
+        var underReview = new ModerationState("UnderReview");
+        var approved = new ModerationState("Approved");
+        var rejected = new ModerationState("Rejected");
+        
+        // note that this needs more edge case configuration 
+        machine.AddPath(normal, new Transition<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: false }), warned);
+        machine.AddPath(normal, new Transition<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: true }), muted);
+        machine.AddPath(warned, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), muted);
+        machine.AddPath(muted, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), banned);
+        machine.AddTimeout(muted, new StateTimeoutConfiguration<ModerationEvent>(10000, new ModerationEvent("TimoutExpired")));
+        machine.AddPath(muted, new Transition<ModerationEvent>(e => e.Identifier == "TimeoutExpired"), normal);
+        machine.AddPath(banned, new Transition<ModerationEvent>(e => e.Identifier == "AppealSubmitted"), underReview);
+        machine.AddPath(underReview, new Transition<ModerationEvent>(e => e.Identifier == "ModeratorApproved"), approved);
+        machine.AddPath(underReview, new Transition<ModerationEvent>(e => e.Identifier == "ModeratorRejected"), rejected);
+        machine.AddPath(approved, new Transition<ModerationEvent>(e => true), normal);
 
-        normal.AddPath(new Trigger<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: false }), warned);
-        normal.AddPath(new Trigger<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: true }), muted);
-        warned.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "ViolationDetected"), muted);
-        muted.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "ViolationDetected"), banned);
-        muted.AddTimeout(new StateTimeoutConfiguration<ModerationEvent>(10000, new ModerationEvent("TimeoutExpired")));
-        muted.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "TimeoutExpired"), normal);
-        banned.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "AppealSubmitted"), underReview);
-        underReview.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "ModeratorApproved"), approved);
-        underReview.AddPath(new Trigger<ModerationEvent>(e => e.Identifier == "ModeratorRejected"), rejected);
-        approved.AddPath(new Trigger<ModerationEvent>(e => true), normal);
-
+        machine.AddStates([normal, warned, muted, banned, underReview, approved, rejected]);
         machine.Configure(new StateMachineConfig<ModerationEvent>(normal));
         return machine;
     }

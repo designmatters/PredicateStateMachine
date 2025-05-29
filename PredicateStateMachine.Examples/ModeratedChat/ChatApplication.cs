@@ -4,7 +4,7 @@ namespace ModeratedChat;
 
 public class ChatApplication
 {
-    private readonly Dictionary<string, PredicateStateMachine<ModerationEvent>> _moderations = new();
+    private readonly Dictionary<string, IPredicateStateMachine<ModerationEvent>> _moderations = new();
 
     public void ProcessMessage(string userName, string message)
     {
@@ -102,7 +102,7 @@ public class ChatApplication
         }
     }
 
-    private bool IsUserBannedAndNotify(string userName, PredicateStateMachine<ModerationEvent> machine)
+    private bool IsUserBannedAndNotify(string userName, IPredicateStateMachine<ModerationEvent> machine)
     {
         switch (machine.GetCurrentState().Name)
         {

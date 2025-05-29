@@ -2,34 +2,19 @@ using PredicateStateMachine;
 
 namespace ModeratedChat;
 
-public class ModerationState : StateNode<ModerationEvent>
+public class ModerationState : IStateNode<ModerationEvent>
 {
-    public ModerationState(PredicateStateMachine<ModerationEvent> stateMachine, string name) : base(stateMachine, name)
+    public string Name { get; set; }
+
+    public ModerationState(string name)
     {
+        Name = name;
     }
 
-    protected override void OnStart()
-    {
-        Console.WriteLine($"→ State: {Name}");
-    }
-
-    protected override void OnStop()
-    {
-    }
-
-    protected override void OnAfterStart()
-    {
-    }
-
-    protected override void OnAfterStop()
-    {
-    }
-
-    protected override void OnBeforeStart()
-    {
-    }
-
-    protected override void OnBeforeStop()
-    {
-    }
+    public void OnBeforeStart() { }
+    public void OnStart() { Console.WriteLine($"→ {Name}"); }
+    public void OnAfterStart() { }
+    public void OnBeforeStop() { }
+    public void OnStop() { }
+    public void OnAfterStop() { }
 }
