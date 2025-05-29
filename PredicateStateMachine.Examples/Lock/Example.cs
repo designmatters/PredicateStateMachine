@@ -36,13 +36,13 @@ public static class Example
         };
         var lockedOut = new AccessState("LockedOut");
 
-        machine.AddPath(idle, new Transition<AccessEvent>(e => e.Identifier == "Code Entered"), checking);
-        machine.AddPath(checking, new Transition<AccessEvent>(e => e.Identifier == "Granted"), granted);
-        machine.AddPath(checking, new Transition<AccessEvent>(e => e.Identifier == "Denied"), denied);
+        machine.AddPath(idle, new Transition<AccessEvent>(e => e is { Identifier: "Code Entered" }), checking);
+        machine.AddPath(checking, new Transition<AccessEvent>(e => e is { Identifier: "Granted" }), granted);
+        machine.AddPath(checking, new Transition<AccessEvent>(e => e is { Identifier: "Denied" }), denied);
         machine.AddPath(denied, new Transition<AccessEvent>(e => true), idle);
-        machine.AddPath(denied, new Transition<AccessEvent>(e => e.Identifier == "Lockout", priority: 1), lockedOut);
-        machine.AddPath(granted, new Transition<AccessEvent>(e => e.Identifier == "Timeout"), idle);
-        machine.AddTimeout(granted, new StateTimeoutConfiguration<AccessEvent>(3000, new AccessEvent("Timeout")));
+        machine.AddPath(denied, new Transition<AccessEvent>(e => e is { Identifier: "Lockout" }, priority: 1), lockedOut);
+        machine.AddPath(granted, new Transition<AccessEvent>(e => e is { Identifier: "Timeout" }), idle);
+        machine.AddTimeout(granted, new TimeoutConfiguration<AccessEvent>(3000, new AccessEvent("Timeout")));
 
         machine.AddStates([idle, checking, granted, denied, lockedOut]);
         machine.Configure(new StateMachineConfig<AccessEvent>(idle)); //merge this into prev

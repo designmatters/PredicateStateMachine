@@ -1,8 +1,8 @@
 namespace PredicateStateMachine;
 
-public class StateTimeoutConfiguration<TEvent> where TEvent : IEvent
+public class TimeoutConfiguration<TEvent> where TEvent : IEvent
 {
-    public StateTimeoutConfiguration(double timeoutMs, TEvent timeoutEvent)
+    public TimeoutConfiguration(double timeoutMs, TEvent timeoutEvent)
     {
         TimeoutMs = timeoutMs;
         TimeoutEvent = timeoutEvent;

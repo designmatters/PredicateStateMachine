@@ -15,7 +15,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     private IActivityMonitor<TEvent> _activityMonitor;
 
     private readonly Dictionary<IStateNode<TEvent>, Dictionary<ITransition<TEvent>, IStateNode<TEvent>>> _paths = new();
-    private readonly Dictionary<IStateNode<TEvent>, StateTimeoutConfiguration<TEvent>> _timeouts = new();
+    private readonly Dictionary<IStateNode<TEvent>, TimeoutConfiguration<TEvent>> _timeouts = new();
     private readonly Dictionary<IStateNode<TEvent>, Timer> _timers = new();
 
     private readonly object _lock = new();
@@ -51,7 +51,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
         transitions[transition] = targetState;
     }
 
-    public void AddTimeout(IStateNode<TEvent> sourceState, StateTimeoutConfiguration<TEvent> timeoutConfiguration)
+    public void AddTimeout(IStateNode<TEvent> sourceState, TimeoutConfiguration<TEvent> timeoutConfiguration)
     {
         _timeouts[sourceState] = timeoutConfiguration;
     }

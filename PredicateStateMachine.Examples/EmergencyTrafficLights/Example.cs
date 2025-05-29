@@ -24,13 +24,13 @@ public static class Example
         var orange = new TrafficState("Orange");
         var orangeFlashing = new TrafficState("OrangeFlashing");
 
-        machine.AddTimeout(red, new StateTimeoutConfiguration<TrafficEvent>(5000, new TrafficEvent("Timer")));
+        machine.AddTimeout(red, new TimeoutConfiguration<TrafficEvent>(5000, new TrafficEvent("Timer")));
         machine.AddPath(red, new Transition<TrafficEvent>(e => e.Identifier == "Timer"), green);
 
-        machine.AddTimeout(green, new StateTimeoutConfiguration<TrafficEvent>(4000, new TrafficEvent("Timer")));
+        machine.AddTimeout(green, new TimeoutConfiguration<TrafficEvent>(4000, new TrafficEvent("Timer")));
         machine.AddPath(green, new Transition<TrafficEvent>(e => e.Identifier == "Timer"), orange);
 
-        machine.AddTimeout(orange, new StateTimeoutConfiguration<TrafficEvent>(2000, new TrafficEvent("Timer")));
+        machine.AddTimeout(orange, new TimeoutConfiguration<TrafficEvent>(2000, new TrafficEvent("Timer")));
         machine.AddPath(orange, new Transition<TrafficEvent>(e => e.Identifier == "Timer"), red);
         
         foreach (var state in new[] { red, green, orange })

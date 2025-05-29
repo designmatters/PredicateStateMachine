@@ -32,7 +32,7 @@ public static class Example
         machine.AddPath(normal, new Transition<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: true }), muted);
         machine.AddPath(warned, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), muted);
         machine.AddPath(muted, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), banned);
-        machine.AddTimeout(muted, new StateTimeoutConfiguration<ModerationEvent>(10000, new ModerationEvent("TimoutExpired")));
+        machine.AddTimeout(muted, new TimeoutConfiguration<ModerationEvent>(10000, new ModerationEvent("TimoutExpired")));
         machine.AddPath(muted, new Transition<ModerationEvent>(e => e.Identifier == "TimeoutExpired"), normal);
         machine.AddPath(banned, new Transition<ModerationEvent>(e => e.Identifier == "AppealSubmitted"), underReview);
         machine.AddPath(underReview, new Transition<ModerationEvent>(e => e.Identifier == "ModeratorApproved"), approved);
