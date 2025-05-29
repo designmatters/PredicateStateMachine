@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using PredicateStateMachine;
 
 namespace ModeratedChat;
@@ -6,7 +7,17 @@ public static class Example
 {
     public static PredicateStateMachine<ModerationEvent> CreateStateMachine()
     {
-        var machine = new PredicateStateMachine<ModerationEvent>();
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(LogLevel.Information)
+                .AddConsole(options => { options.TimestampFormat = "HH:mm:ss "; });
+        });
+
+        var logger = loggerFactory.CreateLogger<PredicateStateMachine<ModerationEvent>>();
+
+        
+        var machine = new PredicateStateMachine<ModerationEvent>(logger);
 
         var normal = new ModerationState("Normal");
         var warned = new ModerationState("Warned");

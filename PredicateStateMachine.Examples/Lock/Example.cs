@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using PredicateStateMachine;
 
 namespace Lock;
@@ -6,9 +7,18 @@ public static class Example
 {
     public static void Run()
     {
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(LogLevel.Information)
+                .AddConsole(options => { options.TimestampFormat = "HH:mm:ss "; });
+        });
+
+        var logger = loggerFactory.CreateLogger<PredicateStateMachine<AccessEvent>>();
+        
         int failedAttempts = 0;
 
-        var machine = new PredicateStateMachine<AccessEvent>();
+        var machine = new PredicateStateMachine<AccessEvent>(logger);
         var idle = new AccessState("Idle");
         var checking = new AccessState("Checking");
         var granted = new AccessState("Granted");

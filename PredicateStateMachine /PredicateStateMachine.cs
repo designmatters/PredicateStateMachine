@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using PredicateStateMachine.ActivityMonitor;
+using PredicateStateMachine.ActivityMonitor.Impl;
 using Timer = System.Timers.Timer;
 
 namespace PredicateStateMachine;
@@ -5,9 +8,11 @@ namespace PredicateStateMachine;
 public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     where TEvent : IEvent
 {
+    private readonly ILogger? _logger;
     private IStateNode<TEvent>? _current;
     private IStateNode<TEvent>? _root;
     private List<IStateNode<TEvent>>? _states;
+    private IActivityMonitor<TEvent> _activityMonitor;
 
     private readonly Dictionary<IStateNode<TEvent>, Dictionary<ITransition<TEvent>, IStateNode<TEvent>>> _paths = new();
     private readonly Dictionary<IStateNode<TEvent>, StateTimeoutConfiguration<TEvent>> _timeouts = new();
@@ -17,6 +22,11 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     private bool _started;
     // private bool _stopped;
 
+    public PredicateStateMachine(ILogger? logger = null)
+    {
+        _logger = logger;
+        _activityMonitor = new DefaultActivityMonitor<TEvent>(_logger); // for now
+    }
     public void AddStates(List<IStateNode<TEvent>> newStates)
     {
         _states ??= [];
@@ -81,6 +91,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
             _current?.OnAfterStop();
 
             nextState.OnBeforeStart();
+            _activityMonitor.Register(_current ?? null, e, nextState);
             _current = nextState;
             _current.OnStart();
             StartTimer(_current);
@@ -101,7 +112,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     {
         if (_root == null)
             throw new InvalidOperationException("Root state is not set.");
-
+        _activityMonitor.RegisterMachineStart(_current , _root);
         _current = _root;
         _started = true;
         _current.OnStart();

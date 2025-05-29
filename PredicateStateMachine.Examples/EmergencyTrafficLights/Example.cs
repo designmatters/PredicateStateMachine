@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using PredicateStateMachine;
+using Sensor;
 
 namespace EmergencyTrafficLight;
 
@@ -6,7 +8,16 @@ public static class Example
 {
     public static async Task Run()
     {
-        var machine = new PredicateStateMachine<TrafficEvent>();
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(LogLevel.Information)
+                .AddConsole(options => { options.TimestampFormat = "HH:mm:ss "; });
+        });
+
+        var logger = loggerFactory.CreateLogger<PredicateStateMachine<TrafficEvent>>();
+        
+        var machine = new PredicateStateMachine<TrafficEvent>(logger);
 
         var red = new TrafficState("Red");
         var green = new TrafficState("Green");

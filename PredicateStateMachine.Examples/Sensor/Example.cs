@@ -1,4 +1,4 @@
-using System.ComponentModel.Design.Serialization;
+using Microsoft.Extensions.Logging;
 using PredicateStateMachine;
 
 namespace Sensor;
@@ -7,7 +7,16 @@ public static class Example
 {
     public static void Run()
     {
-        var machine = new PredicateStateMachine<SensorEvent>();
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(LogLevel.Information)
+                .AddConsole(options => { options.TimestampFormat = "HH:mm:ss "; });
+        });
+
+        var logger = loggerFactory.CreateLogger<PredicateStateMachine<SensorEvent>>();
+
+        var machine = new PredicateStateMachine<SensorEvent>(logger);
 
         var idle = new SensorState("Idle");
         var detected = new SensorState("Detected");
@@ -25,7 +34,7 @@ public static class Example
         machine.AddStates([idle, detected, alarm]);
         machine.Configure(new StateMachineConfig<SensorEvent>(idle));
         machine.Start();
-        
+
         machine.HandleEvent(new SensorEvent("MovementDetected"));
         Thread.Sleep(3000);
         machine.HandleEvent(new SensorEvent("MovementCleared"));
