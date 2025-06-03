@@ -40,6 +40,8 @@ public static class Example
         Thread.Sleep(3000);
         machine.HandleEvent(new SensorEvent("MovementCleared"));
         machine.HandleEvent(new SensorEvent("MovementDetected"));
+        machine.Pause();
+        machine.Resume();
         Thread.Sleep(6000);
     }
 }

@@ -7,6 +7,8 @@ public interface IPredicateStateMachine<TEvent> where TEvent : IEvent
     void AddTimeout(IStateNode<TEvent> sourceState, TimeoutConfiguration<TEvent> timeoutConfiguration);
     void Configure(IStateMachineConfig<TEvent> config);
     void Start();
-    IStateNode<TEvent> HandleEvent(TEvent e);
+    void Pause();
+    void Resume();
+    void HandleEvent(TEvent e);
     IStateNode<TEvent> GetCurrentState();
 }

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using PredicateStateMachine.ActivityMonitor;
 using PredicateStateMachine.ActivityMonitor.Impl;
-using Timer = System.Timers.Timer;
+using ITimer = PredicateStateMachine.Timer.ITimer;
 
 namespace PredicateStateMachine;
 
@@ -11,16 +11,16 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     private readonly ILogger? _logger;
     private IStateNode<TEvent>? _current;
     private IStateNode<TEvent>? _root;
+    private IStateNode<TEvent>? _pausedOnState = null;
     private List<IStateNode<TEvent>>? _states;
     private IActivityMonitor<TEvent> _activityMonitor;
-
+    private LifecycleState _lifecycleState = LifecycleState.NotStarted;
     private readonly Dictionary<IStateNode<TEvent>, Dictionary<ITransition<TEvent>, IStateNode<TEvent>>> _paths = new();
     private readonly Dictionary<IStateNode<TEvent>, TimeoutConfiguration<TEvent>> _timeouts = new();
-    private readonly Dictionary<IStateNode<TEvent>, Timer> _timers = new();
+    private readonly Dictionary<IStateNode<TEvent>, ITimer> _timers = new();
 
     private readonly object _lock = new();
-    private bool _started;
-    // private bool _stopped;
+    
 
     public PredicateStateMachine(ILogger? logger = null)
     {
@@ -61,19 +61,17 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
         _root = config.GetRoot();
     }
 
-    public IStateNode<TEvent> HandleEvent(TEvent e)
+    public void HandleEvent(TEvent e)
     {
-        if (!_started)
-            throw new ApplicationException("State machine has not been started.");
-        // if (_stopped)
-        //     throw new ApplicationException("State machine has been stopped.");
-
+        if (_lifecycleState != LifecycleState.Running && _lifecycleState != LifecycleState.Resumed)
+            return;
+        
         KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>? selected = null;
 
         lock (_lock)
         {
             if (_current == null || !_paths.TryGetValue(_current, out var transitions))
-                return _current!;
+                return;
 
             selected = transitions
                 .Where(t => t.Key.CanTransition(e))
@@ -97,10 +95,10 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
             StartTimer(_current);
             _current.OnAfterStart();
 
-            return _current;
+            return;
         }
 
-        return _current!;
+        return;
     }
 
     public IStateNode<TEvent> GetCurrentState()
@@ -112,18 +110,44 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     {
         if (_root == null)
             throw new InvalidOperationException("Root state is not set.");
-        _activityMonitor.RegisterMachineStart(_current , _root);
+        _lifecycleState = LifecycleState.Running;
+        _activityMonitor.RegisterMachineStarted(_current , _root);
         _current = _root;
-        _started = true;
+        _current.OnBeforeStart();
         _current.OnStart();
+        _current.OnAfterStart();
         StartTimer(_current);
+    }
+    
+    public void Pause()
+    {
+        StopTimer(_current); // TODO. What are the specs here. The timer must pause and resume
+        _current?.OnBeforeStop();
+        _current?.OnStop();
+        _pausedOnState = _current;
+        _lifecycleState = LifecycleState.Stopped;
+        _current?.OnAfterStop();
+        _activityMonitor?.RegisterMachinePaused(_current);
+        _current = null;
+    }
+    
+    public void Resume()
+    {
+        _lifecycleState = LifecycleState.Resumed;
+        _current = _pausedOnState;
+        _activityMonitor.RegisterMachineResumed(_current);
+        _current?.OnBeforeStart();
+        _current?.OnStart();
+        _current?.OnAfterStart();
+        if (_current != null)
+            StartTimer(_current); // TODO. What are the specs here. The timer must pause and resume
     }
 
     private void StartTimer(IStateNode<TEvent> state)
     {
         if (_timeouts.TryGetValue(state, out var config))
         {
-            var timer = new Timer(config.TimeoutMs);
+            var timer = config.GetTimerFactory()();
             timer.Elapsed += (_, _) =>
             {
                 timer.Stop();

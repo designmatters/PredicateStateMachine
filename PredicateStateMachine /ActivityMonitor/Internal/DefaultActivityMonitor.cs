@@ -25,7 +25,7 @@ internal class DefaultActivityMonitor<TEvent> : IActivityMonitor<TEvent>
         Flush(activity);
     }
 
-    public void RegisterMachineStart(IStateNode<TEvent>? sourceState, IStateNode<TEvent> targetState)
+    public void RegisterMachineStarted(IStateNode<TEvent>? sourceState, IStateNode<TEvent> targetState)
     {
         var activity = new Activity<TEvent>(
             DateTime.UtcNow,
@@ -36,13 +36,24 @@ internal class DefaultActivityMonitor<TEvent> : IActivityMonitor<TEvent>
         Flush(activity);
     }
 
-    public void RegisterMachineStop(IStateNode<TEvent>? sourceState)
+    public void RegisterMachinePaused(IStateNode<TEvent>? sourceState)
     {
         var activity = new Activity<TEvent>(
             DateTime.UtcNow,
             sourceState?.Name ?? "",
-            "#MachineStopped",
+            "#MachinePaused",
             "");
+
+        Flush(activity);
+    }
+
+    public void RegisterMachineResumed(IStateNode<TEvent>? resumedOnState)
+    {
+        var activity = new Activity<TEvent>(
+            DateTime.UtcNow,
+           null,
+            "#MachineResumed",
+            resumedOnState?.Name ?? "");
 
         Flush(activity);
     }
