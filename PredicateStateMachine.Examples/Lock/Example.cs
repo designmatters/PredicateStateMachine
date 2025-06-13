@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PredicateStateMachine;
 
@@ -46,13 +47,22 @@ public static class Example
 
         machine.AddStates([idle, checking, granted, denied, lockedOut]);
         machine.Configure(new StateMachineConfig<AccessEvent>(idle)); //merge this into prev
-        machine.Start();
 
-        machine.HandleEvent(new AccessEvent("Code Entered"));
-        machine.HandleEvent(new AccessEvent("Denied"));
-        machine.HandleEvent(new AccessEvent("Code Entered"));
-        machine.HandleEvent(new AccessEvent("Denied"));
-        machine.HandleEvent(new AccessEvent("Code Entered"));
-        machine.HandleEvent(new AccessEvent("Denied"));
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
+        var json = JsonSerializer.Serialize(machine.ToSerializable(), options);
+        
+        Console.WriteLine(json);
+        // machine.Start();
+        //
+        // machine.HandleEvent(new AccessEvent("Code Entered"));
+        // machine.HandleEvent(new AccessEvent("Denied"));
+        // machine.HandleEvent(new AccessEvent("Code Entered"));
+        // machine.HandleEvent(new AccessEvent("Denied"));
+        // machine.HandleEvent(new AccessEvent("Code Entered"));
+        // machine.HandleEvent(new AccessEvent("Denied"));
     }
 }
