@@ -14,7 +14,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     private IStateNode<TEvent>? _pausedOnState = null;
     private List<IStateNode<TEvent>>? _states;
     private IActivityMonitor<TEvent> _activityMonitor;
-    private LifecycleState _lifecycleState = LifecycleState.NotStarted;
+    public LifecycleState LifecycleState = LifecycleState.NotStarted;
     private readonly Dictionary<IStateNode<TEvent>, Dictionary<ITransition<TEvent>, IStateNode<TEvent>>> _paths = new();
     private readonly Dictionary<IStateNode<TEvent>, TimeoutConfiguration<TEvent>> _timeouts = new();
     private readonly Dictionary<IStateNode<TEvent>, ITimer> _timers = new();
@@ -63,7 +63,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
 
     public void HandleEvent(TEvent e)
     {
-        if (_lifecycleState != LifecycleState.Running && _lifecycleState != LifecycleState.Resumed)
+        if (LifecycleState != LifecycleState.Running && LifecycleState != LifecycleState.Resumed)
             return;
         
         KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>? selected = null;
@@ -110,7 +110,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     {
         if (_root == null)
             throw new InvalidOperationException("Root state is not set.");
-        _lifecycleState = LifecycleState.Running;
+        LifecycleState = LifecycleState.Running;
         _activityMonitor.RegisterMachineStarted(_current , _root);
         _current = _root;
         _current.OnBeforeStart();
@@ -125,7 +125,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
         _current?.OnBeforeStop();
         _current?.OnStop();
         _pausedOnState = _current;
-        _lifecycleState = LifecycleState.Stopped;
+        LifecycleState = LifecycleState.Stopped;
         _current?.OnAfterStop();
         _activityMonitor?.RegisterMachinePaused(_current);
         _current = null;
@@ -133,7 +133,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     
     public void Resume()
     {
-        _lifecycleState = LifecycleState.Resumed;
+        LifecycleState = LifecycleState.Resumed;
         _current = _pausedOnState;
         _activityMonitor.RegisterMachineResumed(_current);
         _current?.OnBeforeStart();

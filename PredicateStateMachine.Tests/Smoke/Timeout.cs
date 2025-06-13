@@ -5,7 +5,7 @@ using FluentAssertions;
 using Xunit;
 
 namespace PredicateStateMachine.Tests.Smoke;
-
+    
 public class Timeout
 {
     [Fact]
