@@ -36,13 +36,13 @@ public static class Example
         foreach (var state in new[] { red, green, orange })
         {
             machine.AddPath(state, new Transition<TrafficEvent>(
-                e => e is { Identifier: "EmergencyDetected", DistanceMeters: 1000 }, priority: 10), orangeFlashing);
+                e => e.Identifier == "EmergencyDetected" && e.DistanceMeters == 1000, priority: 10), orangeFlashing);
         }
 
         foreach (var state in new[] { red, green, orange, orangeFlashing })
         {
             machine.AddPath(state, new Transition<TrafficEvent>(
-                e => e is { Identifier: "EmergencyDetected", DistanceMeters: < 500 }, priority: 20), red);
+                e => e.Identifier == "EmergencyDetected" && e.DistanceMeters < 500, priority: 20), red);
         }
         
         machine.AddPath(red, new Transition<TrafficEvent>(
