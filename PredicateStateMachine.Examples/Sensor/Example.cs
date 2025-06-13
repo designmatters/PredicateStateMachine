@@ -26,10 +26,10 @@ public static class Example
         };
 
         // If the sensor stays in movementDetected for at least 5s go to alarm. 
-        machine.AddPath(idle, new Transition<SensorEvent>(e => e is { Identifier: "MovementDetected" }), detected);
-        machine.AddPath(detected, new Transition<SensorEvent>(e => e is { Identifier: "MovementCleared" }), idle);
+        machine.AddPath(idle, new Transition<SensorEvent>(e => e.Identifier == "MovementDetected"), detected);
+        machine.AddPath(detected, new Transition<SensorEvent>(e => e.Identifier == "MovementCleared"), idle);
         machine.AddTimeout(detected, new TimeoutConfiguration<SensorEvent>(5000, new SensorEvent("Timeout")));
-        machine.AddPath(detected, new Transition<SensorEvent>(e => e is { Identifier: "Timeout" }), alarm);
+        machine.AddPath(detected, new Transition<SensorEvent>(e => e.Identifier == "Timeout"), alarm);
 
         
         machine.AddStates([idle, detected, alarm]);

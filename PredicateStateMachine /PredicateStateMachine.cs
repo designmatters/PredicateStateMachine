@@ -1,11 +1,33 @@
 using Microsoft.Extensions.Logging;
 using PredicateStateMachine.ActivityMonitor;
 using PredicateStateMachine.ActivityMonitor.Impl;
+using PredicateStateMachine.Serialization;
+using Serialize.Linq.Serializers;
 using ITimer = PredicateStateMachine.Timer.ITimer;
 
 namespace PredicateStateMachine;
 
-public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
+using Serialize.Linq.Factories;
+using Serialize.Linq.Nodes;
+using System.Linq.Expressions;
+using System.Text.Json;
+
+public static class ExpressionHelper
+{
+    public static string SerializeExpression(Expression expression)
+    {
+        var serializer = new ExpressionSerializer(new Serialize.Linq.Serializers.JsonSerializer()); //share this TODO
+        return serializer.SerializeText(expression);
+    }
+
+    public static Expression DeserializeExpression(string json)
+    {
+        var serializer = new ExpressionSerializer(new Serialize.Linq.Serializers.JsonSerializer()); //share this TODO
+        return serializer.DeserializeText(json);
+    }
+}
+
+public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>, ISerializableStateMachine<TEvent>
     where TEvent : IEvent
 {
     private readonly ILogger? _logger;
@@ -20,13 +42,14 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     private readonly Dictionary<IStateNode<TEvent>, ITimer> _timers = new();
 
     private readonly object _lock = new();
-    
+
 
     public PredicateStateMachine(ILogger? logger = null)
     {
         _logger = logger;
         _activityMonitor = new DefaultActivityMonitor<TEvent>(_logger); // for now
     }
+
     public void AddStates(List<IStateNode<TEvent>> newStates)
     {
         _states ??= [];
@@ -38,7 +61,8 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
             .ToList();
 
         if (duplicates.Count > 0)
-            throw new ApplicationException($"Every state must have a unique name. Duplicates found: {string.Join(", ", duplicates)}");
+            throw new ApplicationException(
+                $"Every state must have a unique name. Duplicates found: {string.Join(", ", duplicates)}");
 
         _states.AddRange(newStates);
     }
@@ -65,7 +89,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
     {
         if (LifecycleState != LifecycleState.Running && LifecycleState != LifecycleState.Resumed)
             return;
-        
+
         KeyValuePair<ITransition<TEvent>, IStateNode<TEvent>>? selected = null;
 
         lock (_lock)
@@ -111,14 +135,14 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
         if (_root == null)
             throw new InvalidOperationException("Root state is not set.");
         LifecycleState = LifecycleState.Running;
-        _activityMonitor.RegisterMachineStarted(_current , _root);
+        _activityMonitor.RegisterMachineStarted(_current, _root);
         _current = _root;
         _current.OnBeforeStart();
         _current.OnStart();
         _current.OnAfterStart();
         StartTimer(_current);
     }
-    
+
     public void Pause()
     {
         StopTimer(_current); // TODO. What are the specs here. The timer must pause and resume
@@ -130,7 +154,7 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
         _activityMonitor?.RegisterMachinePaused(_current);
         _current = null;
     }
-    
+
     public void Resume()
     {
         LifecycleState = LifecycleState.Resumed;
@@ -175,5 +199,50 @@ public class PredicateStateMachine<TEvent> : IPredicateStateMachine<TEvent>
             timer.Dispose();
             _timers.Remove(state);
         }
+    }
+
+
+    public SerializableStateMachine<TEvent> ToSerializable()
+    {
+        var result = new SerializableStateMachine<TEvent>
+        {
+            States = _states?.Select(s => new SerializableState<TEvent>
+            {
+                Name = s.Name
+            }).ToList() ?? [],
+
+            Transitions = _paths.SelectMany(pathDefinition =>
+                pathDefinition.Value.Select(kvp =>
+                {
+                    var transition = (Transition<TEvent>)kvp.Key;
+                    return new SerializableTransition<TEvent>
+                    {
+                        SourceStateName = pathDefinition.Key.Name,
+                        TargetStateName = kvp.Value.Name,
+                        Selector = ExpressionHelper.SerializeExpression(transition.Selector),
+                        Predicate = transition.Predicate != null
+                            ? ExpressionHelper.SerializeExpression(transition.Predicate)
+                            : null,
+                        Priority = transition.Priority
+                    };
+                })
+            ).ToList(),
+
+            Timeouts = _timeouts.Select(kvp => new SerializableTimeout<TEvent>
+            {
+                StateName = kvp.Key.Name,
+                TimeoutMs = kvp.Value.TimeoutMs,
+                TimeoutEvent = JsonSerializer.Serialize(kvp.Value.TimeoutEvent)
+            }).ToList(),
+
+            RootStateName = _root?.Name
+        };
+
+        return result;
+    }
+
+    public static PredicateStateMachine<TEvent> FromSerializable(SerializableStateMachine<TEvent> dto)
+    {
+        throw new NotImplementedException();
     }
 }

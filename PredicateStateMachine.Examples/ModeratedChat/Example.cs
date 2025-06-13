@@ -28,8 +28,8 @@ public static class Example
         var rejected = new ModerationState("Rejected");
         
         // note that this needs more edge case configuration 
-        machine.AddPath(normal, new Transition<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: false }), warned);
-        machine.AddPath(normal, new Transition<ModerationEvent>(e => e is { Identifier: "ViolationDetected", Severe: true }), muted);
+        machine.AddPath(normal, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected" && e.Severe == false), warned);
+        machine.AddPath(normal, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected" && e.Severe == true), muted);
         machine.AddPath(warned, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), muted);
         machine.AddPath(muted, new Transition<ModerationEvent>(e => e.Identifier == "ViolationDetected"), banned);
         machine.AddTimeout(muted, new TimeoutConfiguration<ModerationEvent>(10000, new ModerationEvent("TimoutExpired")));

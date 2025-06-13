@@ -1,16 +1,27 @@
-namespace PredicateStateMachine;
+using System;
+using System.Linq.Expressions;
 
-public class Transition<TEvent> : ITransition<TEvent> where TEvent : IEvent
+namespace PredicateStateMachine
 {
-    public Transition(Func<TEvent, bool> selector, Func<TEvent, bool>? predicate = null, int priority = 0)
+    public class Transition<TEvent> : ITransition<TEvent> where TEvent : IEvent
     {
-        Selector = selector;
-        Predicate = predicate;
-        Priority = priority;
-    }
+        public Transition(Expression<Func<TEvent, bool>> selector, Expression<Func<TEvent, bool>>? predicate = null, int priority = 0)
+        {
+            Selector = selector;
+            Predicate = predicate;
+            Priority = priority;
+            _compiledSelector = selector.Compile();
+            _compiledPredicate = predicate?.Compile();
+        }
 
-    public Func<TEvent, bool> Selector { get; set; }
-    public Func<TEvent, bool>? Predicate { get; set; }
-    public int Priority { get; }
-    public bool CanTransition(TEvent e) => Selector(e) && (Predicate is null || Predicate(e));
+        public Expression<Func<TEvent, bool>> Selector { get; set; }
+        public Expression<Func<TEvent, bool>>? Predicate { get; set; }
+        public int Priority { get; }
+
+        private readonly Func<TEvent, bool> _compiledSelector;
+        private readonly Func<TEvent, bool>? _compiledPredicate;
+
+        public bool CanTransition(TEvent e)
+            => _compiledSelector(e) && (_compiledPredicate == null || _compiledPredicate(e));
+    }
 }
